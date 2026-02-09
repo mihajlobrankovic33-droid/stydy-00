@@ -45,8 +45,8 @@ export const FlashcardsSection = ({ onClose, onCreateFromAI }: FlashcardsSection
         if (!user) return;
         setIsLoading(true);
         try {
-            const { data, error } = await (supabase as any)
-                .from("flashcard_sets")
+            const query = (supabase as any).from("flashcard_sets");
+            const { data, error } = await query
                 .select("*, cards:flashcards(*)")
                 .eq("user_id", user.id)
                 .order("created_at", { ascending: false });
