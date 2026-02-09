@@ -33,7 +33,7 @@ PREDMET: [automatski prepoznaj iz slike]
 
 Izvuci SVE relevantne podatke iz slike u bullet point formatu.`;
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

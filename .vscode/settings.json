@@ -1,0 +1,13 @@
+{
+    "css.lint.unknownAtRules": "ignore",
+    "deno.enable": true,
+    "deno.enablePaths": [
+        "stydy-gpt-890-10bf6682-main/supabase/functions"
+    ],
+    "deno.lint": true,
+    "deno.unstable": true,
+    "deno.suggest.imports.hosts": {
+        "https://deno.land": true,
+        "https://esm.sh": true
+    }
+}

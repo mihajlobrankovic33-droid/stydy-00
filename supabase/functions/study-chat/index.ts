@@ -56,7 +56,7 @@ Example response format:
 
 Quick explanation: [1-2 sentence reason]"`;
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
