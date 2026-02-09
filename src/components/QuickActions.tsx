@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { Lightbulb, FileText, HelpCircle, BookOpen, GraduationCap } from "lucide-react";
+import { Lightbulb, FileText, HelpCircle, BookOpen, GraduationCap, Layers } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 
-export type ActionType = "explain" | "summary" | "quiz" | "homework" | "exam";
+export type ActionType = "explain" | "summary" | "quiz" | "homework" | "exam" | "flashcards";
 
 interface QuickActionsProps {
-  onAction: (action: ActionType, prompt: string) => void;
+  onAction: (action: any, prompt: string) => void;
   disabled?: boolean;
 }
 
@@ -47,6 +47,13 @@ export const QuickActions = ({ onAction, disabled }: QuickActionsProps) => {
       icon: GraduationCap,
       prompt: t.examPrompt,
       color: "bg-red-500/20 text-red-400 hover:bg-red-500/30 border-red-500/30 hover:border-red-500/50",
+    },
+    {
+      type: "flashcards" as ActionType,
+      label: "Flashcards",
+      icon: Layers,
+      prompt: "Create flashcards for me!",
+      color: "bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 border-orange-500/30 hover:border-orange-500/50",
     },
   ];
 

@@ -12,9 +12,11 @@ interface Message {
 
 interface ChatMessageProps {
   message: Message;
+  onQuizAnswer?: (answer: string) => void;
+  onSaveFlashcards?: (content: string) => void;
 }
 
-export const ChatMessage = ({ message }: ChatMessageProps) => {
+export const ChatMessage = ({ message, onQuizAnswer, onSaveFlashcards }: ChatMessageProps) => {
   const { getAvatarUrl } = useCustomization();
   const isUser = message.role === "user";
   const isSticker = message.fileType === "sticker";
@@ -34,9 +36,9 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
           </div>
         ) : (
           <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden flex-shrink-0 shadow-glow border-2 border-primary/20">
-            <img 
-              src={getAvatarUrl()} 
-              alt="StudyGPT" 
+            <img
+              src={getAvatarUrl()}
+              alt="StudyGPT"
               className="w-full h-full object-cover"
             />
           </div>
@@ -62,9 +64,9 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
         </div>
       ) : (
         <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden flex-shrink-0 shadow-glow border-2 border-primary/20">
-          <img 
-            src={getAvatarUrl()} 
-            alt="StudyGPT" 
+          <img
+            src={getAvatarUrl()}
+            alt="StudyGPT"
             className="w-full h-full object-cover"
           />
         </div>
@@ -96,13 +98,13 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
             <span className="text-sm font-medium">PDF Shared</span>
           </div>
         )}
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">
-          {message.content}
-        </p>
+        <div className="text-sm leading-relaxed whitespace-pre-wrap">
+          {renderContent(message.content)}
+        </div>
         {/* Speak button for assistant messages */}
         {!isUser && message.content && (
           <div className="flex justify-end mt-2 -mb-1 -mr-1">
-            <SpeakButton text={message.content} />
+            <SpeakButton text={message.content.replace(/\[QUIZ_QUESTION\]|\[END_QUIZ\]|\[FLASHCARDS_START\]|\[FLASHCARDS_END\]/g, '')} />
           </div>
         )}
       </div>
@@ -110,15 +112,45 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
   );
 };
 
+const renderContent = (content: string) => {
+  // Clean markers for display
+  const cleanContent = content
+    .replace(/\[QUIZ_QUESTION\]|\[END_QUIZ\]|\[FLASHCARDS_START\]|\[FLASHCARDS_END\]/g, '')
+    .trim();
+
+  // If it was a quiz, only show the question part
+  if (content.includes("[QUIZ_QUESTION]")) {
+    const lines = cleanContent.split('\n');
+    return <p className="font-medium text-base">{lines[0]}</p>;
+  }
+
+  // If it was flashcards, show a teaser
+  if (content.includes("[FLASHCARDS_START]")) {
+    return (
+      <div className="space-y-2">
+        <p className="italic text-muted-foreground flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-amber-500" /> Generated flashcards for you!
+        </p>
+        <p className="text-xs text-muted-foreground opacity-70">Check the options below to save them.</p>
+      </div>
+    );
+  }
+
+  return <p>{cleanContent}</p>;
+};
+
+import { Button } from "@/components/ui/button";
+import { Sparkles, Layers } from "lucide-react";
+
 export const TypingIndicator = () => {
   const { getAvatarUrl } = useCustomization();
 
   return (
     <div className="flex gap-2 sm:gap-3 animate-message-in">
       <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden flex-shrink-0 shadow-glow border-2 border-primary/20">
-        <img 
-          src={getAvatarUrl()} 
-          alt="StudyGPT" 
+        <img
+          src={getAvatarUrl()}
+          alt="StudyGPT"
           className="w-full h-full object-cover"
         />
       </div>

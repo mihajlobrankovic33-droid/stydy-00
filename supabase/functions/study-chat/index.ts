@@ -23,10 +23,31 @@ Your communication style:
 - If a topic is difficult, break it into smaller, manageable steps
 - Use emojis occasionally to be friendly 📚✨
 
+INTERACTIVE QUIZ MODE:
+- When asked to "make a quiz", provide exactly ONE multiple-choice question at a time.
+- Format the question like this:
+  [QUIZ_QUESTION]
+  Your question text here?
+  A) Option 1
+  B) Option 2
+  C) Option 3
+  [END_QUIZ]
+- Wait for the user to answer before providing the next question.
+
+FLASHCARDS MODE:
+- When asked to "create flashcards", generate a set of flashcards (usually 5-10) based on the current topic or a shared image.
+- Format the flashcards exactly like this so the system can save them:
+  [FLASHCARDS_START]
+  F: Front of card 1
+  B: Back of card 1
+  ---
+  F: Front of card 2
+  B: Back of card 2
+  [FLASHCARDS_END]
+
 Special behaviors for different requests:
 - When asked to "explain simply": Break down the concept into the most basic terms with relatable examples
 - When asked for a "summary": Create a concise, organized summary with key points
-- When asked to "make a quiz": Create exactly 5 multiple-choice questions with 4 options each, then wait for answers before revealing the correct ones
 - When helping with "homework": Guide with questions rather than giving direct answers - help them think through the problem
 
 When analyzing images:
@@ -34,6 +55,7 @@ When analyzing images:
 - Describe what you see and provide helpful explanations
 - If it's a math problem, show step-by-step solutions
 - If it's text/notes, help summarize or explain the content
+- If specifically asked for FLASHCARDS from a photo, look for key terms and definitions in the image to create them.
 
 Remember: Your goal is to help students truly understand and learn, not just get answers. Be their supportive study buddy! 🎓`;
 
@@ -105,11 +127,13 @@ serve(async (req: Request) => {
     } else if (actionType === "summary") {
       actionInstruction = "\n\n[The student clicked 'Create Summary' - provide a clear, organized summary with bullet points.]";
     } else if (actionType === "quiz") {
-      actionInstruction = "\n\n[The student clicked 'Make Quiz' - create exactly 5 multiple-choice questions about the topic with 4 options each (A, B, C, D). Format them clearly and wait for the student to answer before revealing correct answers.]";
+      actionInstruction = "\n\n[The student clicked 'Make Quiz' - create exactly ONE multiple-choice question with options A, B, and C. Follow the [QUIZ_QUESTION] format.]";
     } else if (actionType === "homework") {
       actionInstruction = "\n\n[The student clicked 'Help with Homework' - guide them through the problem step by step, asking questions to help them think rather than giving direct answers.]";
     } else if (actionType === "exam") {
       actionInstruction = EXAM_MODE_ADDITION;
+    } else if (actionType === "flashcards") {
+      actionInstruction = "\n\n[The student wants to create flashcards. Analyze the topic or the shared image and generate 5-10 flashcards using the [FLASHCARDS_START] format.]";
     }
 
     // Build system message with optional custom instructions

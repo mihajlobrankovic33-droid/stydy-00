@@ -13,6 +13,7 @@ import { DirectChat } from "@/components/DirectChat";
 import { AuthScreen } from "@/components/AuthScreen";
 import { ProUpgradeModal } from "@/components/ProUpgradeModal";
 import { HamburgerMenu } from "@/components/HamburgerMenu";
+import { FlashcardsSection } from "@/components/FlashcardsSection";
 import { ProfileSettings } from "@/components/ProfileSettings";
 import { ChatHistoryModal, detectSubject, generateTitle } from "@/components/ChatHistoryModal";
 import { useSupabaseAuth } from "@/context/SupabaseAuthContext";
@@ -20,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useOfflineStatus } from "@/hooks/useOfflineStatus";
 import { useLanguage } from "@/context/LanguageContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, MessageCircle, FileText, Users } from "lucide-react";
+import { Loader2, MessageCircle, FileText, Users, Sparkles } from "lucide-react";
 import { InstallPWAButton } from "@/components/InstallPWAButton";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,6 +48,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
   const [showProModal, setShowProModal] = useState(false);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [showChatHistory, setShowChatHistory] = useState(false);
+  const [showFlashcards, setShowFlashcards] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [customSystemPrompt, setCustomSystemPrompt] = useState<string>(() => {
     return localStorage.getItem('custom_system_prompt') || '';
@@ -198,7 +200,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
                 assistantContent += content;
                 pendingUpdate = true;
                 updateCounter++;
-                
+
                 // Immediate update every STREAM_BATCH_SIZE chunks for responsiveness
                 if (updateCounter % STREAM_BATCH_SIZE === 0) {
                   flushUpdate();
@@ -271,18 +273,66 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
   };
 
   const handleSend = async (content: string, fileUrl?: string, fileType?: "image" | "pdf" | "sticker") => {
-    const userMessage: Message = { 
-      role: "user", 
-      content, 
+    const userMessage: Message = {
+      role: "user",
+      content,
       imageUrl: fileType === "image" ? fileUrl : undefined,
-      fileType 
+      fileType
     };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
-    
+
     // Don't send stickers to AI, they're just visual
     if (fileType !== "sticker") {
       await streamChat(newMessages, currentAction || undefined);
+    }
+  };
+
+  const saveFlashcardsFromAI = async (flashcardsText: string) => {
+    if (!user) return;
+    try {
+      const cards = flashcardsText.split('---').map(block => {
+        const lines = block.trim().split('\n');
+        const front = lines.find(l => l.startsWith('F:'))?.replace('F:', '').trim() || "";
+        const back = lines.find(l => l.startsWith('B:'))?.replace('B:', '').trim() || "";
+        return { front, back };
+      }).filter(c => c.front && c.back);
+
+      if (cards.length === 0) throw new Error("No cards found in text");
+
+      // Determine a title for the set
+      const title = messages[messages.length - 2]?.content.substring(0, 30) + "..." || "AI Generated Set";
+
+      const { data: set, error: setError } = await (supabase as any)
+        .from('flashcard_sets')
+        .insert({
+          user_id: user.id,
+          title,
+          subject: messages.length > 2 ? detectSubject(messages.map(m => ({ role: m.role, content: m.content }))) : "General"
+        })
+        .select()
+        .single();
+
+      if (setError) throw setError;
+
+      const { error: cardsError } = await (supabase as any)
+        .from('flashcards')
+        .insert(cards.map(c => ({
+          set_id: set.id,
+          front_content: c.front,
+          back_content: c.back
+        })));
+
+      if (cardsError) throw cardsError;
+
+      toast({
+        title: "Flashcards saved! 📚",
+        description: `Saved ${cards.length} cards to your collection.`
+      });
+      setShowFlashcards(true); // Open flashcards to see the new set
+    } catch (error) {
+      console.error("Save error:", error);
+      toast({ title: "Failed to save flashcards", variant: "destructive" });
     }
   };
 
@@ -299,9 +349,28 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
   }, [messages, isLoading]);
 
   const handleLoadSession = (loadedMessages: Array<{ role: "user" | "assistant"; content: string }>, sessionId: string) => {
-    setMessages(loadedMessages);
+    setMessages(loadedMessages as Message[]);
     setCurrentSessionId(sessionId);
   };
+
+  const getActiveOptions = (content: string) => {
+    if (content.includes("[QUIZ_QUESTION]")) {
+      const match = content.match(/\[QUIZ_QUESTION\]([\s\S]*?)\[END_QUIZ\]/);
+      if (match) {
+        const lines = match[1].trim().split("\n");
+        const options = lines.slice(1).filter(l => l.trim() !== "");
+        return { type: 'quiz' as const, options };
+      }
+    }
+    if (content.includes("[FLASHCARDS_START]")) {
+      const match = content.match(/\[FLASHCARDS_START\]([\s\S]*?)\[FLASHCARDS_END\]/);
+      return { type: 'flashcards' as const, content: match ? match[1] : "" };
+    }
+    return null;
+  };
+
+  const lastMessage = messages[messages.length - 1];
+  const activeOptions = !isLoading && lastMessage?.role === "assistant" ? getActiveOptions(lastMessage.content) : null;
 
   const handleNewChat = () => {
     setMessages([]);
@@ -309,11 +378,15 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
   };
 
   const handleQuickAction = async (action: ActionType, prompt: string) => {
+    if (action === "flashcards") {
+      setShowFlashcards(true);
+      return;
+    }
     setCurrentAction(action);
     toast({
       title: getActionTitle(action),
-      description: action === "exam" 
-        ? "I'll give you direct answers! Send a question or photo." 
+      description: action === "exam"
+        ? "I'll give you direct answers! Send a question or photo."
         : "Tell me what topic you'd like help with!",
     });
   };
@@ -353,7 +426,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
     <div className="relative flex flex-col h-screen bg-background select-none">
       <OfflineIndicator isOnline={isOnline} />
       <Header />
-      
+
       {/* Top right: Install + Hamburger only */}
       <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
         <InstallPWAButton />
@@ -369,26 +442,53 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
           }}
         />
       </div>
-      
+
       {/* Profile Settings Modal */}
       <ProfileSettings isOpen={showProfileSettings} onClose={() => setShowProfileSettings(false)} />
-      
+
       {/* Chat History Modal */}
-      <ChatHistoryModal 
+      <ChatHistoryModal
         open={showChatHistory}
         onOpenChange={setShowChatHistory}
         onLoadSession={handleLoadSession}
         onNewChat={handleNewChat}
         currentSessionId={currentSessionId}
       />
-      
+
       {/* Pro Upgrade Modal */}
       <ProUpgradeModal open={showProModal} onOpenChange={setShowProModal} />
-      
-      
+
+
       {/* Admin Panel */}
       <AdminPanel isOpen={showAdminPanel} onClose={() => setShowAdminPanel(false)} />
-      
+
+      {/* Flashcards Fullscreen View */}
+      {showFlashcards && (
+        <div className="fixed inset-0 z-50 bg-background flex flex-col p-4 animate-in fade-in slide-in-from-bottom-4">
+          <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col pt-12 pb-8">
+            <FlashcardsSection
+              onClose={() => setShowFlashcards(false)}
+              onCreateFromAI={(mode) => {
+                setShowFlashcards(false);
+                if (mode === "photo") {
+                  toast({ title: "Take or Upload a photo", description: "Use the camera button in chat to create cards!" });
+                  setCurrentAction("flashcards");
+                } else {
+                  handleSend("Create flashcards based on our recent topics!");
+                }
+              }}
+            />
+            <Button
+              variant="ghost"
+              className="absolute top-4 right-4"
+              onClick={() => setShowFlashcards(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Main content with tabs */}
       <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
         {/* Tab Navigation */}
@@ -396,33 +496,30 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
           <div className="grid w-full max-w-md mx-auto grid-cols-3 bg-muted/50 rounded-lg p-1">
             <button
               onClick={() => setActiveTab("chat")}
-              className={`flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeTab === "chat" 
-                  ? "bg-primary text-primary-foreground" 
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "chat"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
             >
               <MessageCircle className="w-4 h-4" />
               {t.aiChat}
             </button>
             <button
               onClick={() => setActiveTab("puskice")}
-              className={`flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeTab === "puskice" 
-                  ? "bg-primary text-primary-foreground" 
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "puskice"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
             >
               <FileText className="w-4 h-4" />
               {t.puskiceTab}
             </button>
             <button
               onClick={() => setActiveTab("messages")}
-              className={`flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeTab === "messages" 
-                  ? "bg-primary text-primary-foreground" 
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "messages"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
             >
               <Users className="w-4 h-4" />
               {t.messagesTab}
@@ -443,7 +540,12 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
               <ScrollArea className="flex-1 min-h-0" ref={scrollRef} viewportRef={viewportRef}>
                 <div className="w-full max-w-4xl mx-auto space-y-4 p-4 pb-24">
                   {messages.map((message, index) => (
-                    <ChatMessage key={index} message={message} />
+                    <ChatMessage
+                      key={index}
+                      message={message}
+                      onQuizAnswer={(ans) => handleSend(`My answer is ${ans}`)}
+                      onSaveFlashcards={saveFlashcardsFromAI}
+                    />
                   ))}
                   {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
                     <TypingIndicator />
@@ -456,20 +558,56 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
             {/* Input area - fixed at bottom, never covers content */}
             <div className="flex-shrink-0 border-t border-border bg-card/80 backdrop-blur-sm safe-area-bottom">
               <div className="max-w-4xl mx-auto px-2 py-2 sm:px-4 sm:py-3 space-y-2 sm:space-y-3">
-                {/* Action indicator */}
-                {currentAction && (
-                  <div className="flex items-center justify-center">
-                    <div className={`text-xs sm:text-sm font-medium px-3 py-1.5 sm:px-4 sm:py-2 rounded-full animate-fade-in ${
-                      currentAction === "exam" 
-                        ? "bg-red-500/20 text-red-400 border border-red-500/30" 
+                {/* Action indicator & Interactive Buttons */}
+                {(currentAction || activeOptions) && (
+                  <div className="flex flex-col items-center gap-2">
+                    {/* Mode label */}
+                    {currentAction && (
+                      <div className={`text-xs font-medium px-3 py-1 rounded-full animate-fade-in ${currentAction === "exam"
+                        ? "bg-red-500/20 text-red-400 border border-red-500/30"
                         : "bg-primary/10 text-primary border border-primary/30"
-                    }`}>
-                      {getActionTitle(currentAction)}
-                      <span className="hidden sm:inline"> - {currentAction === "exam" ? "Send question or take a photo" : "Type your topic below"}</span>
-                    </div>
+                        }`}>
+                        {getActionTitle(currentAction)}
+                      </div>
+                    )}
+
+                    {/* Interactive Quiz buttons */}
+                    {activeOptions?.type === 'quiz' && (
+                      <div className="flex flex-wrap gap-2 justify-center animate-in slide-in-from-bottom-2 duration-300">
+                        {activeOptions.options.map((opt, i) => {
+                          const letterMatch = opt.match(/^([A-C])\)/);
+                          const letter = letterMatch ? letterMatch[1] : (i === 0 ? 'A' : i === 1 ? 'B' : 'C');
+                          return (
+                            <Button
+                              key={i}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSend(`My answer is ${letter}`)}
+                              className="bg-primary/5 border-primary/20 hover:bg-primary/10 text-primary rounded-full px-4 h-9 shadow-glow-sm"
+                            >
+                              <span className="font-bold mr-2">{letter}</span>
+                              <span className="text-xs truncate max-w-[120px]">{opt.replace(/^[A-C]\)\s*/, '').trim()}</span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Interactive Flashcards button */}
+                    {activeOptions?.type === 'flashcards' && (
+                      <div className="animate-in slide-in-from-bottom-2 duration-300 w-full max-w-xs mx-auto">
+                        <Button
+                          size="sm"
+                          onClick={() => saveFlashcardsFromAI(activeOptions.content)}
+                          className="w-full bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-glow-sm flex items-center gap-2"
+                        >
+                          <Sparkles className="w-4 h-4" /> Save to My Flashcards
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
-                
+
                 <QuickActions onAction={handleQuickAction} disabled={isLoading} />
                 <ChatInput onSend={handleSend} disabled={isLoading} />
               </div>
