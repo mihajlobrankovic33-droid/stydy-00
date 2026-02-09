@@ -45,14 +45,16 @@ export const FlashcardsSection = ({ onClose, onCreateFromAI }: FlashcardsSection
         if (!user) return;
         setIsLoading(true);
         try {
-            const query = (supabase as any).from("flashcard_sets");
-            const { data, error } = await query
+            // Using a very aggressive cast to avoid deep type instantiation errors in the Supabase client
+            const supabaseAny = supabase as any;
+            const { data, error } = await supabaseAny
+                .from("flashcard_sets")
                 .select("*, cards:flashcards(*)")
                 .eq("user_id", user.id)
                 .order("created_at", { ascending: false });
 
             if (error) throw error;
-            setSets((data || []) as FlashcardSet[]);
+            setSets((data || []) as any[]);
         } catch (error) {
             console.error("Error fetching flashcard sets:", error);
         } finally {

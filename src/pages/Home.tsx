@@ -348,7 +348,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
     }
   }, [messages, isLoading]);
 
-  const handleLoadSession = (loadedMessages: Array<{ role: "user" | "assistant"; content: string }>, sessionId: string) => {
+  const handleLoadSession = (loadedMessages: any[], sessionId: string) => {
     setMessages(loadedMessages as Message[]);
     setCurrentSessionId(sessionId);
   };

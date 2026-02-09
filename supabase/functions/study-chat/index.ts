@@ -149,6 +149,7 @@ serve(async (req: Request) => {
 
     // Process messages to handle images
     const processedMessages = messages.map((msg: { role: string; content: string; imageUrl?: string }) => {
+      const content = msg.content || "";
       if (msg.imageUrl) {
         // Multimodal message with image
         return {
@@ -156,7 +157,7 @@ serve(async (req: Request) => {
           content: [
             {
               type: "text",
-              text: msg.content || "Please analyze this image and help me understand it.",
+              text: content || "Please analyze this image and help me understand it.",
             },
             {
               type: "image_url",
@@ -167,46 +168,48 @@ serve(async (req: Request) => {
           ],
         };
       }
-      return msg;
+      return { ...msg, content };
     });
+
+    const body = {
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: systemMessage.content }]
+        },
+        ...processedMessages.map((msg: any) => ({
+          role: msg.role === "assistant" ? "model" : "user",
+          parts: Array.isArray(msg.content)
+            ? msg.content.map((part: any) => {
+              if (part.type === "text") {
+                return { text: part.text || "" };
+              } else if (part.type === "image_url" && part.image_url?.url) {
+                return {
+                  inlineData: {
+                    mimeType: "image/jpeg",
+                    data: part.image_url.url.includes(",") ? part.image_url.url.split(",")[1] : part.image_url.url
+                  }
+                };
+              }
+              return { text: "" };
+            })
+            : [{ text: String(msg.content || "") }]
+        }))
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 2048,
+      }
+    };
 
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?key=" + GEMINI_API_KEY, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: systemMessage.content }]
-          },
-          ...processedMessages.map((msg: any) => ({
-            role: msg.role === "assistant" ? "model" : "user",
-            parts: Array.isArray(msg.content)
-              ? msg.content.map((part: any) => {
-                if (part.type === "text") {
-                  return { text: part.text };
-                } else if (part.type === "image_url") {
-                  return {
-                    inlineData: {
-                      mimeType: "image/jpeg",
-                      data: part.image_url.url.split(",")[1] || part.image_url.url
-                    }
-                  };
-                }
-                return part;
-              })
-              : [{ text: msg.content }]
-          }))
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 2048,
-        }
-      }),
+      body: JSON.stringify(body),
     });
 
     // Create a TransformStream to convert Gemini streaming format to OpenAI format
