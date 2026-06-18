@@ -22,7 +22,7 @@ import { useOfflineStatus } from "@/hooks/useOfflineStatus";
 import { useLanguage } from "@/context/LanguageContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, MessageCircle, FileText, Users, Sparkles } from "lucide-react";
-import { InstallPWAButton } from "@/components/InstallPWAButton";
+
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -145,7 +145,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
     try {
       // If offline, use Ollama local model
       if (!isOnline) {
-        const ollamaUrl = "http://localhost:11434/api/generate";
+        const ollamaUrl = import.meta.env.VITE_OLLAMA_URL || `http://${window.location.hostname}:11434/api/generate`;
         const response = await fetch(ollamaUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -501,7 +501,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Top right: Install + Hamburger only */}
       <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
-        <InstallPWAButton />
+
         <HamburgerMenu
           onOpenProfile={() => setShowProfileSettings(true)}
           onOpenProModal={() => setShowProModal(true)}

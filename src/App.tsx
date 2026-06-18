@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CustomizationProvider } from "@/context/CustomizationContext";
 import { SupabaseAuthProvider } from "@/context/SupabaseAuthContext";
 import { LanguageProvider } from "@/context/LanguageContext";
-import { PWAUpdateListener } from "@/components/PWAUpdateListener";
+
 import Home from "./pages/Home";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
@@ -19,10 +19,10 @@ const App = () => (
       <CustomizationProvider>
         <SupabaseAuthProvider>
           <TooltipProvider>
-            <PWAUpdateListener />
+            
             <Toaster />
             <Sonner />
-                        <Home />
+            <Home />
           </TooltipProvider>
         </SupabaseAuthProvider>
       </CustomizationProvider>
