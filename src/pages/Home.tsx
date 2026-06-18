@@ -422,6 +422,32 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
     return <AuthScreen />;
   }
 
+  // Offline mode UI
+  if (!isOnline) {
+    return (
+      <div className="fixed inset-0 bg-black text-white flex flex-col items-center justify-center p-4">
+        <p className="mb-4 text-center">We are offline. Ask my rabbit brain what to do.</p>
+        <textarea
+          className="w-full max-w-2xl p-2 bg-gray-800 text-white rounded mb-2"
+          placeholder="Type your question here..."
+          rows={4}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              const target = e.target as HTMLTextAreaElement;
+              const content = target.value.trim();
+              if (content) {
+                handleSend(content);
+                target.value = '';
+              }
+            }
+          }}
+        />
+        {/* No buttons, just textarea */}
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex flex-col h-screen bg-background select-none">
       <OfflineIndicator isOnline={isOnline} />
