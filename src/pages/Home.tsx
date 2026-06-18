@@ -125,7 +125,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
     let updateCounter = 0;
     let pendingUpdate = false;
 
-    // Batched update function - only updates UI every N chunks or on timeout
+    // Flush UI update
     const flushUpdate = () => {
       if (pendingUpdate) {
         const currentContent = assistantContent;
@@ -143,6 +143,52 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
     };
 
     try {
+      // If offline, use Ollama local model
+      if (!isOnline) {
+        const ollamaUrl = "http://localhost:11434/api/generate";
+        const response = await fetch(ollamaUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "llama3.1:8b",
+            prompt: newMessages.map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`).join("\n"),
+            stream: true,
+          }),
+        });
+        if (!response.ok) throw new Error(`Ollama request failed: ${response.status}`);
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        const flushInterval = setInterval(flushUpdate, 50);
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            let newlineIdx;
+            while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+              let line = buffer.slice(0, newlineIdx);
+              buffer = buffer.slice(newlineIdx + 1);
+              if (line.trim() === "") continue;
+              try {
+                const data = JSON.parse(line);
+                if (data.response) {
+                  assistantContent += data.response;
+                  pendingUpdate = true;
+                  updateCounter++;
+                  if (updateCounter % STREAM_BATCH_SIZE === 0) flushUpdate();
+                }
+              } catch {}
+            }
+          }
+        } finally {
+          clearInterval(flushInterval);
+          flushUpdate();
+        }
+        return;
+      }
+
+      // Online path – existing Supabase Gemini call (unchanged)
       // Get the user's session token for authenticated API calls
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
@@ -228,7 +274,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
       setIsLoading(false);
       setCurrentAction(null);
     }
-  }, [customSystemPrompt, toast]);
+  }, [customSystemPrompt, toast, isOnline]);
 
   // Save session to database
   const saveSession = async (msgs: Message[]) => {

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+// Browser routing removed – app renders Home directly
 import { CustomizationProvider } from "@/context/CustomizationContext";
 import { SupabaseAuthProvider } from "@/context/SupabaseAuthContext";
 import { LanguageProvider } from "@/context/LanguageContext";
@@ -22,14 +22,7 @@ const App = () => (
             <PWAUpdateListener />
             <Toaster />
             <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/admin" element={<Admin />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
+                        <Home />
           </TooltipProvider>
         </SupabaseAuthProvider>
       </CustomizationProvider>
