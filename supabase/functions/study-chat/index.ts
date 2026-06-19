@@ -148,10 +148,26 @@ serve(async (req: Request) => {
     };
 
     // Process messages to handle images
-    const processedMessages = messages.map((msg: { role: string; content: string; imageUrl?: string }) => {
+    const processedMessages = messages.map((msg: { role: string; content: string; imageUrl?: string; imageUrls?: string[] }) => {
       const content = msg.content || "";
-      if (msg.imageUrl) {
-        // Multimodal message with image
+      if (msg.imageUrls && msg.imageUrls.length > 0) {
+        return {
+          role: msg.role,
+          content: [
+            {
+              type: "text",
+              text: content || "Please analyze these images and help me understand them.",
+            },
+            ...msg.imageUrls.map(url => ({
+              type: "image_url",
+              image_url: {
+                url: url,
+              },
+            })),
+          ],
+        };
+      } else if (msg.imageUrl) {
+        // Multimodal message with single image
         return {
           role: msg.role,
           content: [

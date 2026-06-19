@@ -30,6 +30,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   imageUrl?: string;
+  imageUrls?: string[];
   fileType?: "image" | "pdf" | "sticker";
   fileName?: string;
 }
@@ -62,6 +63,19 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
   const { user, profile, isLoading: authLoading, isPro, isLifetimePro, isAdmin, daysRemaining, signOut } = useSupabaseAuth();
   const isOnline = useOfflineStatus();
   const { t } = useLanguage();
+
+  // File upload state for input area
+  const [filePreviews, setFilePreviews] = useState<string[]>([]);
+  const [fileDatas, setFileDatas] = useState<string[]>([]);
+  const [fileType, setFileType] = useState<"image" | "pdf" | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+
+  const clearFiles = () => {
+    setFilePreviews([]);
+    setFileDatas([]);
+    setFileType(null);
+    setFileName(null);
+  };
 
   // Anti-tamper: Disable right-click and F12
   useEffect(() => {
@@ -145,7 +159,10 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
     try {
       // If offline, use Ollama local model
       if (!isOnline) {
-        const ollamaUrl = import.meta.env.VITE_OLLAMA_URL || `http://${window.location.hostname}:11434/api/generate`;
+        if (!import.meta.env.VITE_OLLAMA_URL) {
+          throw new Error("VITE_OLLAMA_URL is not set. Configure Ollama endpoint.");
+        }
+        const ollamaUrl = import.meta.env.VITE_OLLAMA_URL;
         const response = await fetch(ollamaUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -318,18 +335,38 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
     }
   };
 
-  const handleSend = async (content: string, fileUrl?: string, fileType?: "image" | "pdf" | "sticker") => {
+  const handleSend = async (content: string, stickerText?: string, stickerType?: "sticker") => {
+    let finalContent = content;
+    let finalType: "image" | "pdf" | "sticker" | undefined = undefined;
+    let finalUrls: string[] | undefined = undefined;
+
+    if (stickerType === "sticker") {
+      finalContent = stickerText || "";
+      finalType = "sticker";
+    } else if (fileType === "pdf") {
+      finalContent = content || `Sharing: ${fileName}`;
+      finalType = "pdf";
+    } else if (fileType === "image") {
+      finalContent = content || (fileDatas.length > 1 ? "What's in these images?" : "What's in this image?");
+      finalType = "image";
+      finalUrls = fileDatas;
+    }
+
     const userMessage: Message = {
       role: "user",
-      content,
-      imageUrl: fileType === "image" ? fileUrl : undefined,
-      fileType
+      content: finalContent,
+      imageUrl: finalType === "image" ? (finalUrls ? finalUrls[0] : undefined) : undefined,
+      imageUrls: finalUrls,
+      fileType: finalType,
+      fileName: fileType === "pdf" ? (fileName || undefined) : undefined,
     };
+
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
+    clearFiles();
 
     // Don't send stickers to AI, they're just visual
-    if (fileType !== "sticker") {
+    if (finalType !== "sticker") {
       await streamChat(newMessages, currentAction || undefined);
     }
   };
@@ -680,8 +717,71 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
                   </div>
                 )}
 
+                <ChatInput
+                  onSend={handleSend}
+                  disabled={isLoading}
+                  hasFiles={filePreviews.length > 0 || !!fileName}
+                  onAddImages={(previews, base64s) => {
+                    setFileType("image");
+                    setFilePreviews((prev) => [...prev, ...previews]);
+                    setFileDatas((prev) => [...prev, ...base64s]);
+                  }}
+                  onAddPdf={(name, base64) => {
+                    setFileType("pdf");
+                    setFileName(name);
+                    setFileDatas([base64]);
+                  }}
+                />
+
+                {/* File Previews - pops up above colorful buttons, below text box */}
+                {(filePreviews.length > 0 || (fileType === "pdf" && fileName)) && (
+                  <div className="flex flex-wrap gap-2 justify-center animate-in slide-in-from-bottom-2 duration-300 pt-1">
+                    {fileType === "image" ? (
+                      filePreviews.map((preview, i) => (
+                        <div key={i} className="relative inline-block">
+                          <img
+                            src={preview}
+                            alt="Selected"
+                            className="h-16 w-auto rounded-lg border border-primary/20 shadow-soft"
+                          />
+                          <button
+                            type="button"
+                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold shadow-md hover:bg-red-600 transition-colors"
+                            onClick={() => {
+                              const newPreviews = [...filePreviews];
+                              newPreviews.splice(i, 1);
+                              const newDatas = [...fileDatas];
+                              newDatas.splice(i, 1);
+                              setFilePreviews(newPreviews);
+                              setFileDatas(newDatas);
+                              if (newPreviews.length === 0) {
+                                setFileType(null);
+                              }
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="relative inline-block">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-primary/20">
+                          <span className="text-lg">📄</span>
+                          <span className="text-sm font-medium truncate max-w-[150px]">{fileName}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold shadow-md hover:bg-red-600 transition-colors"
+                          onClick={clearFiles}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <QuickActions onAction={handleQuickAction} disabled={isLoading} />
-                <ChatInput onSend={handleSend} disabled={isLoading} />
               </div>
             </div>
           </div>

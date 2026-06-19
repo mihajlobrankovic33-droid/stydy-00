@@ -6,6 +6,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   imageUrl?: string;
+  imageUrls?: string[];
   fileType?: "image" | "pdf" | "sticker";
   fileName?: string;
 }
@@ -81,8 +82,21 @@ export const ChatMessage = ({ message, onQuizAnswer, onSaveFlashcards }: ChatMes
             : "bg-card text-card-foreground rounded-bl-md border border-border"
         )}
       >
-        {/* Show image if present */}
-        {message.imageUrl && message.fileType !== "pdf" && (
+        {/* Show multiple images if present */}
+        {message.imageUrls && message.imageUrls.length > 0 && message.fileType !== "pdf" && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {message.imageUrls.map((url, i) => (
+              <img
+                key={i}
+                src={url}
+                alt={`Shared-${i}`}
+                className="max-w-[200px] max-h-40 sm:max-h-48 rounded-lg object-cover border border-border"
+              />
+            ))}
+          </div>
+        )}
+        {/* Fallback to single image if present */}
+        {(!message.imageUrls || message.imageUrls.length === 0) && message.imageUrl && message.fileType !== "pdf" && (
           <div className="mb-2">
             <img
               src={message.imageUrl}
