@@ -717,36 +717,20 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
                   </div>
                 )}
 
-                <ChatInput
-                  onSend={handleSend}
-                  disabled={isLoading}
-                  hasFiles={filePreviews.length > 0 || !!fileName}
-                  onAddImages={(previews, base64s) => {
-                    setFileType("image");
-                    setFilePreviews((prev) => [...prev, ...previews]);
-                    setFileDatas((prev) => [...prev, ...base64s]);
-                  }}
-                  onAddPdf={(name, base64) => {
-                    setFileType("pdf");
-                    setFileName(name);
-                    setFileDatas([base64]);
-                  }}
-                />
-
-                {/* File Previews - pops up above colorful buttons, below text box */}
+                {/* File Previews - show above colorful quick action buttons */}
                 {(filePreviews.length > 0 || (fileType === "pdf" && fileName)) && (
-                  <div className="flex flex-wrap gap-2 justify-center animate-in slide-in-from-bottom-2 duration-300 pt-1">
+                  <div className="flex flex-wrap gap-2 justify-start animate-in slide-in-from-bottom-2 duration-300 px-1">
                     {fileType === "image" ? (
                       filePreviews.map((preview, i) => (
                         <div key={i} className="relative inline-block">
                           <img
                             src={preview}
                             alt="Selected"
-                            className="h-16 w-auto rounded-lg border border-primary/20 shadow-soft"
+                            className="h-20 w-auto max-w-[120px] object-cover rounded-xl border-2 border-primary/30 shadow-md"
                           />
                           <button
                             type="button"
-                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold shadow-md hover:bg-red-600 transition-colors"
+                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center text-sm font-bold shadow-lg hover:bg-red-600 active:scale-95 transition-all"
                             onClick={() => {
                               const newPreviews = [...filePreviews];
                               newPreviews.splice(i, 1);
@@ -771,7 +755,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
                         </div>
                         <button
                           type="button"
-                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold shadow-md hover:bg-red-600 transition-colors"
+                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center text-sm font-bold shadow-lg hover:bg-red-600 active:scale-95 transition-all"
                           onClick={clearFiles}
                         >
                           ×
@@ -782,7 +766,24 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
                 )}
 
                 <QuickActions onAction={handleQuickAction} disabled={isLoading} />
+
+                <ChatInput
+                  onSend={handleSend}
+                  disabled={isLoading}
+                  hasFiles={filePreviews.length > 0 || !!fileName}
+                  onAddImages={(previews, base64s) => {
+                    setFileType("image");
+                    setFilePreviews((prev) => [...prev, ...previews]);
+                    setFileDatas((prev) => [...prev, ...base64s]);
+                  }}
+                  onAddPdf={(name, base64) => {
+                    setFileType("pdf");
+                    setFileName(name);
+                    setFileDatas([base64]);
+                  }}
+                />
               </div>
+
             </div>
           </div>
         )}
