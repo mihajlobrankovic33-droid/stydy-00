@@ -281,6 +281,30 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
         clearInterval(flushInterval);
         // Final flush to ensure all content is displayed
         flushUpdate();
+
+        // Post-process: if the AI generated a quiz without the proper tags, wrap it automatically
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (!last || last.role !== "assistant") return prev;
+
+          const c = last.content;
+          // If it already has the quiz marker, do nothing
+          if (c.includes("[QUIZ_QUESTION]")) return prev;
+
+          // Detect if the response looks like a quiz: has question + A) B) C) options
+          const hasOptions = /A\)/i.test(c) && /B\)/i.test(c) && /C\)/i.test(c);
+          if (!hasOptions) return prev;
+
+          // Try to extract the correct answer hint from text like "correct answer is B" or "odgovor je B"
+          const correctMatch = c.match(/(?:correct answer is|odgovor je|tačan odgovor je)\s+([A-C])/i);
+          const correctLetter = correctMatch ? correctMatch[1].toUpperCase() : "A";
+
+          // Wrap in quiz tags
+          const wrapped = `[QUIZ_QUESTION]\n${c.trim()}\n[CORRECT: ${correctLetter}]\n[END_QUIZ]`;
+          return prev.map((m, i) =>
+            i === prev.length - 1 ? { ...m, content: wrapped } : m
+          );
+        });
       }
     } catch (error) {
       console.error("Chat error:", error);
@@ -441,14 +465,20 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
 
   const getActiveOptions = (content: string) => {
     if (content.includes("[QUIZ_QUESTION]")) {
-      const match = content.match(/\[QUIZ_QUESTION\]([\s\S]*?)\[END_QUIZ\]/);
+      // Be forgiving with [END_QUIZ] - match with or without it
+      const match = content.match(/\[QUIZ_QUESTION\]([\s\S]*?)(?:\[END_QUIZ\]|$)/);
       if (match) {
         const fullMatch = match[1].trim();
-        const correctMatch = fullMatch.match(/\[CORRECT:\s*([A-C])\]/);
-        const correctAnswer = correctMatch ? correctMatch[1] : null;
-        const lines = fullMatch.replace(/\[CORRECT:\s*[A-C]\]/g, '').split("\n");
-        const options = lines.slice(1).filter(l => l.trim() !== "");
-        return { type: 'quiz' as const, options, correctAnswer };
+        // Handle [CORRECT:A], [CORRECT: A], [CORRECT : A] etc.
+        const correctMatch = fullMatch.match(/\[CORRECT\s*:\s*([A-C])\]/i);
+        const correctAnswer = correctMatch ? correctMatch[1].toUpperCase() : null;
+        const cleaned = fullMatch.replace(/\[CORRECT\s*:\s*[A-C]\]/gi, '');
+        const lines = cleaned.split("\n").map(l => l.trim()).filter(Boolean);
+        // First line is the question, rest are options
+        const options = lines.slice(1).filter(l => /^[A-C]\)/i.test(l));
+        if (options.length >= 2) {
+          return { type: 'quiz' as const, options, correctAnswer };
+        }
       }
     }
     if (content.includes("[FLASHCARDS_START]")) {
