@@ -1,6 +1,11 @@
 import { cn } from "@/lib/utils";
 import { useCustomization } from "@/context/CustomizationContext";
 import { SpeakButton } from "./SpeakButton";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 interface Message {
   role: "user" | "assistant";
@@ -129,7 +134,7 @@ export const ChatMessage = ({ message, onQuizAnswer, onSaveFlashcards }: ChatMes
 const renderContent = (content: string) => {
   // Clean markers for display
   const cleanContent = content
-    .replace(/\[QUIZ_QUESTION\]|\[END_QUIZ\]|\[FLASHCARDS_START\]|\[FLASHCARDS_END\]/g, '')
+    .replace(/\[QUIZ_QUESTION\]|\[END_QUIZ\]|\[FLASHCARDS_START\]|\[FLASHCARDS_END\]|\[CORRECT:\s*[A-C]\]/g, '')
     .trim();
 
   // If it was a quiz, only show the question part
@@ -150,7 +155,15 @@ const renderContent = (content: string) => {
     );
   }
 
-  return <p>{cleanContent}</p>;
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeKatex]}
+      className="prose dark:prose-invert max-w-none prose-sm sm:prose-base leading-relaxed"
+    >
+      {cleanContent}
+    </ReactMarkdown>
+  );
 };
 
 import { Button } from "@/components/ui/button";

@@ -23,16 +23,27 @@ Your communication style:
 - If a topic is difficult, break it into smaller, manageable steps
 - Use emojis occasionally to be friendly 📚✨
 
-INTERACTIVE QUIZ MODE:
-- When asked to "make a quiz", provide exactly ONE multiple-choice question at a time.
-- Format the question like this:
-  [QUIZ_QUESTION]
-  Your question text here?
-  A) Option 1
-  B) Option 2
-  C) Option 3
-  [END_QUIZ]
-- Wait for the user to answer before providing the next question.
+RESILIENCE AND ALTERNATIVE SOLUTIONS (Try Harder Logic):
+- If you cannot fulfill a request perfectly, NEVER simply return an error or say "I cannot do this".
+- Always implement a "try harder" logic: find a workaround, provide a logical approximation, or break the problem down into solvable parts.
+- Maintain a stable and helpful persona at all times.
+
+INTERACTIVE QUIZ MODE — MANDATORY FORMAT:
+- Whenever the student asks for a quiz, test, pitanje, kviz, pitaj me, ili proveri znanje — you MUST output EXACTLY ONE question using the following format. No exceptions.
+- The format must be followed EXACTLY — character for character, including the exact bracket tags:
+
+[QUIZ_QUESTION]
+Your question text here?
+A) Option 1
+B) Option 2
+C) Option 3
+[CORRECT: A]
+[END_QUIZ]
+
+- Replace A in [CORRECT: A] with whichever letter (A, B, or C) is the correct answer.
+- NEVER skip [QUIZ_QUESTION], [CORRECT: X], or [END_QUIZ]. If you omit any of these tags the question cannot be graded.
+- After generating the question, STOP and wait for the student to answer.
+- When the student replies with their answer (e.g. "My answer is B"), tell them if they were right or wrong, explain the correct answer, then ask if they want another question.
 
 FLASHCARDS MODE:
 - When asked to "create flashcards", generate a set of flashcards (usually 5-10) based on the current topic or a shared image.
@@ -56,6 +67,14 @@ When analyzing images:
 - If it's a math problem, show step-by-step solutions
 - If it's text/notes, help summarize or explain the content
 - If specifically asked for FLASHCARDS from a photo, look for key terms and definitions in the image to create them.
+
+WOLFRAM ALPHA INTEGRATION (Math, Physics, Chemistry):
+- If the student asks a question related to Math, Physics, or Chemistry, you MUST act as if you are connected to Wolfram Alpha.
+- Give a highly accurate, step-by-step mathematical/scientific breakdown of the problem.
+- Structure your response similarly to how Wolfram Alpha would present it (e.g., Input interpretation, Result, Step-by-step solution).
+- AT THE VERY END of your response, you MUST provide a direct link to the Wolfram Alpha website so the user can see it there. Format the link EXACTLY like this:
+  [Pogledaj na Wolfram Alpha sajtu](https://www.wolframalpha.com/input?i=URL_ENCODED_QUERY)
+  Replace URL_ENCODED_QUERY with the actual math/physics query properly URL-encoded (e.g., replace spaces with +, etc.).
 
 Remember: Your goal is to help students truly understand and learn, not just get answers. Be their supportive study buddy! 🎓`;
 
@@ -125,9 +144,9 @@ serve(async (req: Request) => {
     if (actionType === "explain") {
       actionInstruction = "\n\n[The student clicked 'Explain Simply' - provide a very simple, step-by-step explanation with examples.]";
     } else if (actionType === "summary") {
-      actionInstruction = "\n\n[The student clicked 'Create Summary' - provide a clear, organized summary with bullet points.]";
+      actionInstruction = "\n\n[The student clicked 'Create Summary' - Provide a high-level, app-wide global summary. Capture the core concepts of the entire conversation context rather than just isolated chunks. Connect ideas coherently.]";
     } else if (actionType === "quiz") {
-      actionInstruction = "\n\n[The student clicked 'Make Quiz' - create exactly ONE multiple-choice question with options A, B, and C. Follow the [QUIZ_QUESTION] format.]";
+      actionInstruction = "\n\n[The student clicked 'Make Quiz' - create exactly ONE multiple-choice question with options A, B, and C. Follow the [QUIZ_QUESTION] format and include [CORRECT: X].]";
     } else if (actionType === "homework") {
       actionInstruction = "\n\n[The student clicked 'Help with Homework' - guide them through the problem step by step, asking questions to help them think rather than giving direct answers.]";
     } else if (actionType === "exam") {
@@ -166,14 +185,15 @@ serve(async (req: Request) => {
             })),
           ],
         };
-      } else if (msg.imageUrl) {
-        // Multimodal message with single image
+      } else if (msg.imageUrl || msg.fileType === "pdf") {
+        const isPdf = msg.fileType === "pdf" || (msg.imageUrl && msg.imageUrl.startsWith("data:application/pdf"));
+        // Multimodal message with single image or pdf
         return {
           role: msg.role,
           content: [
             {
               type: "text",
-              text: content || "Please analyze this image and help me understand it.",
+              text: content || (isPdf ? "Please analyze this PDF document and help me understand it." : "Please analyze this image and help me understand it."),
             },
             {
               type: "image_url",
@@ -200,9 +220,10 @@ serve(async (req: Request) => {
               if (part.type === "text") {
                 return { text: part.text || "" };
               } else if (part.type === "image_url" && part.image_url?.url) {
+                const isPdfUrl = part.image_url.url.startsWith("data:application/pdf");
                 return {
                   inlineData: {
-                    mimeType: "image/jpeg",
+                    mimeType: isPdfUrl ? "application/pdf" : "image/jpeg",
                     data: part.image_url.url.includes(",") ? part.image_url.url.split(",")[1] : part.image_url.url
                   }
                 };

@@ -103,6 +103,16 @@ interface Translations {
   aiChat: string;
   puskiceTab: string;
   messagesTab: string;
+  characters: string;
+  personalizeGpt: string;
+  gptPromptPlaceholder: string;
+  reset: string;
+  save: string;
+  characterChanged: string;
+  characterChangedDesc: string;
+  gptPersonalized: string;
+  gptPersonalizedDesc: string;
+  gptResetDesc: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -207,6 +217,16 @@ const translations: Record<Language, Translations> = {
     aiChat: "AI Čet",
     puskiceTab: "Puškice",
     messagesTab: "Poruke",
+    characters: "Karakteri",
+    personalizeGpt: "Personalizuj GPT",
+    gptPromptPlaceholder: "Dodaj posebne instrukcije za AI (npr. 'Odgovaraj samo na srpskom')...",
+    reset: "Resetuj",
+    save: "Sačuvaj",
+    characterChanged: "Karakter promenjen!",
+    characterChangedDesc: "Sada koristiš",
+    gptPersonalized: "GPT personalizovan! ✨",
+    gptPersonalizedDesc: "Tvoj prilagođeni prompt je sačuvan.",
+    gptResetDesc: "GPT je vraćen na podrazumevano ponašanje.",
   },
   en: {
     menu: "Menu",
@@ -309,6 +329,16 @@ const translations: Record<Language, Translations> = {
     aiChat: "AI Chat",
     puskiceTab: "Notes",
     messagesTab: "Messages",
+    characters: "Characters",
+    personalizeGpt: "Personalize GPT",
+    gptPromptPlaceholder: "Add special AI instructions (e.g. 'Answer only in English')...",
+    reset: "Reset",
+    save: "Save",
+    characterChanged: "Character changed!",
+    characterChangedDesc: "Now using",
+    gptPersonalized: "GPT personalized! ✨",
+    gptPersonalizedDesc: "Your custom prompt is saved.",
+    gptResetDesc: "GPT behavior reset to default.",
   },
   de: {
     menu: "Menü",
@@ -411,6 +441,16 @@ const translations: Record<Language, Translations> = {
     aiChat: "KI Chat",
     puskiceTab: "Notizen",
     messagesTab: "Nachrichten",
+    characters: "Charaktere",
+    personalizeGpt: "GPT personalisieren",
+    gptPromptPlaceholder: "Spezielle KI-Anweisungen hinzufügen...",
+    reset: "Zurücksetzen",
+    save: "Speichern",
+    characterChanged: "Charakter geändert!",
+    characterChangedDesc: "Du nutzt jetzt",
+    gptPersonalized: "GPT personalisiert! ✨",
+    gptPersonalizedDesc: "Deine Anweisung wurde gespeichert.",
+    gptResetDesc: "GPT-Verhalten auf Standard zurückgesetzt.",
   },
   fr: {
     menu: "Menu",
@@ -513,6 +553,16 @@ const translations: Record<Language, Translations> = {
     aiChat: "Chat IA",
     puskiceTab: "Notes",
     messagesTab: "Messages",
+    characters: "Personnages",
+    personalizeGpt: "Personnaliser GPT",
+    gptPromptPlaceholder: "Ajouter des instructions spéciales pour l\'IA...",
+    reset: "Réinitialiser",
+    save: "Enregistrer",
+    characterChanged: "Personnage changé!",
+    characterChangedDesc: "Vous utilisez maintenant",
+    gptPersonalized: "GPT personnalisé! ✨",
+    gptPersonalizedDesc: "Votre prompt personnalisé est enregistré.",
+    gptResetDesc: "Comportement GPT réinitialisé.",
   },
   es: {
     menu: "Menú",
@@ -615,6 +665,16 @@ const translations: Record<Language, Translations> = {
     aiChat: "Chat IA",
     puskiceTab: "Notas",
     messagesTab: "Mensajes",
+    characters: "Personajes",
+    personalizeGpt: "Personalizar GPT",
+    gptPromptPlaceholder: "Añadir instrucciones especiales para la IA...",
+    reset: "Restablecer",
+    save: "Guardar",
+    characterChanged: "¡Personaje cambiado!",
+    characterChangedDesc: "Ahora usas",
+    gptPersonalized: "¡GPT personalizado! ✨",
+    gptPersonalizedDesc: "Tu prompt personalizado ha sido guardado.",
+    gptResetDesc: "Comportamiento de GPT restablecido.",
   },
   it: {
     menu: "Menu",
@@ -717,6 +777,16 @@ const translations: Record<Language, Translations> = {
     aiChat: "Chat IA",
     puskiceTab: "Note",
     messagesTab: "Messaggi",
+    characters: "Personaggi",
+    personalizeGpt: "Personalizza GPT",
+    gptPromptPlaceholder: "Aggiungi istruzioni speciali per l\'IA...",
+    reset: "Reimposta",
+    save: "Salva",
+    characterChanged: "Personaggio cambiato!",
+    characterChangedDesc: "Ora usi",
+    gptPersonalized: "GPT personalizzato! ✨",
+    gptPersonalizedDesc: "Il tuo prompt è stato salvato.",
+    gptResetDesc: "Comportamento GPT reimpostato.",
   },
   ru: {
     menu: "Меню",
@@ -819,6 +889,16 @@ const translations: Record<Language, Translations> = {
     aiChat: "ИИ Чат",
     puskiceTab: "Заметки",
     messagesTab: "Сообщения",
+    characters: "Персонажи",
+    personalizeGpt: "Персонализировать GPT",
+    gptPromptPlaceholder: "Добавьте специальные инструкции для ИИ...",
+    reset: "Сбросить",
+    save: "Сохранить",
+    characterChanged: "Персонаж изменён!",
+    characterChangedDesc: "Теперь вы используете",
+    gptPersonalized: "GPT персонализирован! ✨",
+    gptPersonalizedDesc: "Ваш промпт сохранён.",
+    gptResetDesc: "Поведение GPT сброшено.",
   },
   zh: {
     menu: "菜单",
@@ -921,6 +1001,16 @@ const translations: Record<Language, Translations> = {
     aiChat: "AI聊天",
     puskiceTab: "笔记",
     messagesTab: "消息",
+    characters: "角色",
+    personalizeGpt: "个性化 GPT",
+    gptPromptPlaceholder: "添加特殊的AI指令...",
+    reset: "重置",
+    save: "保存",
+    characterChanged: "角色已更改！",
+    characterChangedDesc: "现在使用",
+    gptPersonalized: "GPT已个性化！ ✨",
+    gptPersonalizedDesc: "您的自定义提示已保存。",
+    gptResetDesc: "GPT行为已重置为默认。",
   },
   ja: {
     menu: "メニュー",
@@ -1023,6 +1113,16 @@ const translations: Record<Language, Translations> = {
     aiChat: "AIチャット",
     puskiceTab: "ノート",
     messagesTab: "メッセージ",
+    characters: "キャラクター",
+    personalizeGpt: "GPTをカスタマイズ",
+    gptPromptPlaceholder: "特別なAIの指示を追加...",
+    reset: "リセット",
+    save: "保存",
+    characterChanged: "キャラクターを変更しました！",
+    characterChangedDesc: "現在使用中：",
+    gptPersonalized: "GPTがカスタマイズされました！ ✨",
+    gptPersonalizedDesc: "カスタムプロンプトが保存されました。",
+    gptResetDesc: "GPTの動作がデフォルトにリセットされました。",
   },
   ar: {
     menu: "القائمة",
@@ -1125,6 +1225,16 @@ const translations: Record<Language, Translations> = {
     aiChat: "دردشة الذكاء الاصطناعي",
     puskiceTab: "ملاحظات",
     messagesTab: "رسائل",
+    characters: "شخصيات",
+    personalizeGpt: "تخصيص GPT",
+    gptPromptPlaceholder: "أضف تعليمات ذكاء اصطناعي خاصة...",
+    reset: "إعادة تعيين",
+    save: "حفظ",
+    characterChanged: "تم تغيير الشخصية!",
+    characterChangedDesc: "أنت الآن تستخدم",
+    gptPersonalized: "تم تخصيص GPT! ✨",
+    gptPersonalizedDesc: "تم حفظ التعليمات الخاصة بك.",
+    gptResetDesc: "تمت إعادة تعيين سلوك GPT إلى الافتراضي.",
   },
 };
 

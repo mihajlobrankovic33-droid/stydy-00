@@ -81,8 +81,8 @@ export function HamburgerMenu({ onOpenProfile, onOpenProModal, onOpenChatHistory
   const handleSelectCharacter = (themeId: string) => {
     selectTheme(themeId);
     toast({
-      title: `${avatarThemes.find((t) => t.id === themeId)?.emoji} Karakter promenjen!`,
-      description: `Sada koristiš ${avatarThemes.find((t) => t.id === themeId)?.name}`,
+      title: `${avatarThemes.find((t) => t.id === themeId)?.emoji} ${t.characterChanged}`,
+      description: `${t.characterChangedDesc} ${avatarThemes.find((t) => t.id === themeId)?.name}`,
     });
   };
 
@@ -90,8 +90,8 @@ export function HamburgerMenu({ onOpenProfile, onOpenProModal, onOpenChatHistory
     if (onCustomSystemPromptChange) {
       onCustomSystemPromptChange(localPrompt);
       toast({
-        title: "GPT personalizovan! ✨",
-        description: "Tvoj prilagođeni prompt je sačuvan.",
+        title: t.gptPersonalized,
+        description: t.gptPersonalizedDesc,
       });
     }
     setShowGptPersonalize(false);
@@ -221,7 +221,7 @@ export function HamburgerMenu({ onOpenProfile, onOpenProModal, onOpenChatHistory
                 className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-card border border-border text-left hover:bg-muted transition-colors"
               >
                 <Sparkles className="w-5 h-5 text-primary" />
-                <span className="text-sm font-medium text-foreground">Karakteri</span>
+                <span className="text-sm font-medium text-foreground">{t.characters}</span>
                 <span className="ml-auto text-xs text-muted-foreground">
                   {avatarThemes.find(t => t.id === settings.selectedThemeId)?.emoji}
                 </span>
@@ -231,7 +231,7 @@ export function HamburgerMenu({ onOpenProfile, onOpenProModal, onOpenChatHistory
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-primary" />
-                    <span className="text-sm font-medium text-foreground">Karakteri</span>
+                    <span className="text-sm font-medium text-foreground">{t.characters}</span>
                   </div>
                   <Button
                     variant="ghost"
@@ -272,14 +272,14 @@ export function HamburgerMenu({ onOpenProfile, onOpenProModal, onOpenChatHistory
                 className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-card border border-border text-left hover:bg-muted transition-colors"
               >
                 <MessageSquare className="w-5 h-5 text-primary" />
-                <span className="text-sm font-medium text-foreground">Personalizuj GPT</span>
+                <span className="text-sm font-medium text-foreground">{t.personalizeGpt}</span>
               </button>
             ) : (
               <div className="px-4 py-3 rounded-xl bg-card border border-border space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <MessageSquare className="w-5 h-5 text-primary" />
-                    <span className="text-sm font-medium text-foreground">Personalizuj GPT</span>
+                    <span className="text-sm font-medium text-foreground">{t.personalizeGpt}</span>
                   </div>
                   <Button
                     variant="ghost"
@@ -291,7 +291,7 @@ export function HamburgerMenu({ onOpenProfile, onOpenProModal, onOpenChatHistory
                   </Button>
                 </div>
                 <Textarea
-                  placeholder="Dodaj posebne instrukcije za AI (npr. 'Odgovaraj samo na srpskom', 'Budi kratak i jasan'...)"
+                  placeholder={t.gptPromptPlaceholder}
                   value={localPrompt}
                   onChange={(e) => setLocalPrompt(e.target.value)}
                   className="min-h-[80px] text-sm"
@@ -304,14 +304,14 @@ export function HamburgerMenu({ onOpenProfile, onOpenProModal, onOpenChatHistory
                       setLocalPrompt("");
                       if (onCustomSystemPromptChange) onCustomSystemPromptChange("");
                       setShowGptPersonalize(false);
-                      toast({ title: "Resetovano", description: "GPT je vraćen na podrazumevano ponašanje." });
+                      toast({ title: t.reset, description: t.gptResetDesc });
                     }}
                     className="flex-1"
                   >
-                    Resetuj
+                    {t.reset}
                   </Button>
                   <Button size="sm" onClick={handleSaveGptPrompt} className="flex-1">
-                    Sačuvaj
+                    {t.save}
                   </Button>
                 </div>
               </div>

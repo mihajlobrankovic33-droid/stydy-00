@@ -16,6 +16,7 @@ import { HamburgerMenu } from "@/components/HamburgerMenu";
 import { FlashcardsSection } from "@/components/FlashcardsSection";
 import { ProfileSettings } from "@/components/ProfileSettings";
 import { ChatHistoryModal, detectSubject, generateTitle } from "@/components/ChatHistoryModal";
+import { ZekaTeacher } from "@/components/ZekaTeacher";
 import { useSupabaseAuth } from "@/context/SupabaseAuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useOfflineStatus } from "@/hooks/useOfflineStatus";
@@ -51,6 +52,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [showFlashcards, setShowFlashcards] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [quizState, setQuizState] = useState<{ selectedAnswer: string | null; isCorrect: boolean | null; showZeka: boolean; zekaMessage: string }>({ selectedAnswer: null, isCorrect: null, showZeka: false, zekaMessage: "" });
   const [customSystemPrompt, setCustomSystemPrompt] = useState<string>(() => {
     return localStorage.getItem('custom_system_prompt') || '';
   });
@@ -184,7 +186,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
             buffer += decoder.decode(value, { stream: true });
             let newlineIdx;
             while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
-              let line = buffer.slice(0, newlineIdx);
+              const line = buffer.slice(0, newlineIdx);
               buffer = buffer.slice(newlineIdx + 1);
               if (line.trim() === "") continue;
               try {
@@ -279,6 +281,30 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
         clearInterval(flushInterval);
         // Final flush to ensure all content is displayed
         flushUpdate();
+
+        // Post-process: if the AI generated a quiz without the proper tags, wrap it automatically
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (!last || last.role !== "assistant") return prev;
+
+          const c = last.content;
+          // If it already has the quiz marker, do nothing
+          if (c.includes("[QUIZ_QUESTION]")) return prev;
+
+          // Detect if the response looks like a quiz: has question + A) B) C) options
+          const hasOptions = /A\)/i.test(c) && /B\)/i.test(c) && /C\)/i.test(c);
+          if (!hasOptions) return prev;
+
+          // Try to extract the correct answer hint from text like "correct answer is B" or "odgovor je B"
+          const correctMatch = c.match(/(?:correct answer is|odgovor je|tačan odgovor je)\s+([A-C])/i);
+          const correctLetter = correctMatch ? correctMatch[1].toUpperCase() : "A";
+
+          // Wrap in quiz tags
+          const wrapped = `[QUIZ_QUESTION]\n${c.trim()}\n[CORRECT: ${correctLetter}]\n[END_QUIZ]`;
+          return prev.map((m, i) =>
+            i === prev.length - 1 ? { ...m, content: wrapped } : m
+          );
+        });
       }
     } catch (error) {
       console.error("Chat error:", error);
@@ -364,6 +390,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     clearFiles();
+    setQuizState({ selectedAnswer: null, isCorrect: null, showZeka: false, zekaMessage: "" });
 
     // Don't send stickers to AI, they're just visual
     if (finalType !== "sticker") {
@@ -438,11 +465,20 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
 
   const getActiveOptions = (content: string) => {
     if (content.includes("[QUIZ_QUESTION]")) {
-      const match = content.match(/\[QUIZ_QUESTION\]([\s\S]*?)\[END_QUIZ\]/);
+      // Be forgiving with [END_QUIZ] - match with or without it
+      const match = content.match(/\[QUIZ_QUESTION\]([\s\S]*?)(?:\[END_QUIZ\]|$)/);
       if (match) {
-        const lines = match[1].trim().split("\n");
-        const options = lines.slice(1).filter(l => l.trim() !== "");
-        return { type: 'quiz' as const, options };
+        const fullMatch = match[1].trim();
+        // Handle [CORRECT:A], [CORRECT: A], [CORRECT : A] etc.
+        const correctMatch = fullMatch.match(/\[CORRECT\s*:\s*([A-C])\]/i);
+        const correctAnswer = correctMatch ? correctMatch[1].toUpperCase() : null;
+        const cleaned = fullMatch.replace(/\[CORRECT\s*:\s*[A-C]\]/gi, '');
+        const lines = cleaned.split("\n").map(l => l.trim()).filter(Boolean);
+        // First line is the question, rest are options
+        const options = lines.slice(1).filter(l => /^[A-C]\)/i.test(l));
+        if (options.length >= 2) {
+          return { type: 'quiz' as const, options, correctAnswer };
+        }
       }
     }
     if (content.includes("[FLASHCARDS_START]")) {
@@ -682,23 +718,67 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
 
                     {/* Interactive Quiz buttons */}
                     {activeOptions?.type === 'quiz' && (
-                      <div className="flex flex-wrap gap-2 justify-center animate-in slide-in-from-bottom-2 duration-300">
-                        {activeOptions.options.map((opt, i) => {
-                          const letterMatch = opt.match(/^([A-C])\)/);
-                          const letter = letterMatch ? letterMatch[1] : (i === 0 ? 'A' : i === 1 ? 'B' : 'C');
-                          return (
-                            <Button
-                              key={i}
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleSend(`My answer is ${letter}`)}
-                              className="bg-primary/5 border-primary/20 hover:bg-primary/10 text-primary rounded-full px-4 h-9 shadow-glow-sm"
-                            >
-                              <span className="font-bold mr-2">{letter}</span>
-                              <span className="text-xs truncate max-w-[120px]">{opt.replace(/^[A-C]\)\s*/, '').trim()}</span>
-                            </Button>
-                          );
-                        })}
+                      <div className="flex flex-col items-center gap-3 w-full animate-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex flex-wrap gap-2 justify-center w-full">
+                          {activeOptions.options.map((opt, i) => {
+                            const letterMatch = opt.match(/^([A-C])\)/);
+                            const letter = letterMatch ? letterMatch[1] : (i === 0 ? 'A' : i === 1 ? 'B' : 'C');
+                            const isSelected = quizState.selectedAnswer === letter;
+                            let btnVariant: "outline" | "default" | "destructive" | "secondary" | "ghost" | "link" = "outline";
+                            let btnClass = "bg-primary/5 border-primary/20 hover:bg-primary/10 text-primary";
+                            
+                            if (quizState.selectedAnswer) {
+                              if (letter === activeOptions.correctAnswer) {
+                                btnClass = "bg-green-500 hover:bg-green-600 text-white border-green-600";
+                                btnVariant = "default";
+                              } else if (isSelected) {
+                                btnClass = "bg-red-500 hover:bg-red-600 text-white border-red-600";
+                                btnVariant = "destructive";
+                              } else {
+                                btnClass = "opacity-50 pointer-events-none";
+                              }
+                            }
+
+                            return (
+                              <Button
+                                key={i}
+                                variant={btnVariant}
+                                size="sm"
+                                disabled={quizState.selectedAnswer !== null}
+                                onClick={() => {
+                                  const isCorrect = letter === activeOptions.correctAnswer;
+                                  setQuizState(prev => ({ ...prev, selectedAnswer: letter, isCorrect }));
+                                  setTimeout(() => handleSend(`My answer is ${letter}`), 1500);
+                                }}
+                                className={cn("rounded-full px-4 h-9 shadow-glow-sm transition-all duration-300", btnClass)}
+                              >
+                                <span className="font-bold mr-2">{letter}</span>
+                                <span className="text-xs truncate max-w-[120px]">{opt.replace(/^[A-C]\)\s*/, '').trim()}</span>
+                              </Button>
+                            );
+                          })}
+                        </div>
+                        {quizState.isCorrect === false && !quizState.showZeka && (
+                          <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            className="rounded-full shadow-lg animate-bounce"
+                            onClick={() => {
+                              setQuizState(prev => ({ 
+                                ...prev, 
+                                showZeka: true, 
+                                zekaMessage: "Jao, nije tačno! Ne brini, hajmo polako. Tačan odgovor je bio pod " + activeOptions.correctAnswer + ". Da li ti treba detaljnije objašnjenje zašto je to tako?" 
+                              }));
+                            }}
+                          >
+                            🐰 Nije mi jasno!
+                          </Button>
+                        )}
+                        {quizState.showZeka && (
+                          <div className="w-full">
+                            <ZekaTeacher message={quizState.zekaMessage} />
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -717,51 +797,62 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
                   </div>
                 )}
 
-                {/* File Previews - show above colorful quick action buttons */}
+                {/* Visual Container (Sistem za pregled unosa) */}
                 {(filePreviews.length > 0 || (fileType === "pdf" && fileName)) && (
-                  <div className="flex flex-wrap gap-2 justify-start animate-in slide-in-from-bottom-2 duration-300 px-1">
-                    {fileType === "image" ? (
-                      filePreviews.map((preview, i) => (
-                        <div key={i} className="relative inline-block">
-                          <img
-                            src={preview}
-                            alt="Selected"
-                            className="h-20 w-auto max-w-[120px] object-cover rounded-xl border-2 border-primary/30 shadow-md"
-                          />
+                  <div className="w-full bg-muted/30 border border-primary/20 rounded-xl p-3 shadow-inner animate-in slide-in-from-bottom-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-semibold text-primary uppercase tracking-wider">Trenutno se obrađuje</span>
+                      <div className="flex-1 border-b border-primary/10"></div>
+                    </div>
+                    <div className="flex flex-wrap gap-3 justify-start">
+                      {fileType === "image" ? (
+                        filePreviews.map((preview, i) => (
+                          <div key={i} className="relative group">
+                            <img
+                              src={preview}
+                              alt="Selected"
+                              className="h-24 w-auto max-w-[160px] object-cover rounded-lg border-2 border-primary/30 shadow-sm transition-transform group-hover:scale-105"
+                            />
+                            <button
+                              type="button"
+                              className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-sm font-bold shadow-lg hover:bg-destructive/90 active:scale-95 transition-all opacity-0 group-hover:opacity-100"
+                              onClick={() => {
+                                const newPreviews = [...filePreviews];
+                                newPreviews.splice(i, 1);
+                                const newDatas = [...fileDatas];
+                                newDatas.splice(i, 1);
+                                setFilePreviews(newPreviews);
+                                setFileDatas(newDatas);
+                                if (newPreviews.length === 0) {
+                                  setFileType(null);
+                                }
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="relative group w-full sm:w-auto">
+                          <div className="flex items-center gap-3 px-4 py-3 bg-background rounded-lg border border-primary/30 shadow-sm">
+                            <div className="p-2 bg-red-100 rounded-lg">
+                              <span className="text-2xl">📄</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-semibold truncate max-w-[200px]">{fileName}</span>
+                              <span className="text-xs text-muted-foreground">PDF Dokument</span>
+                            </div>
+                          </div>
                           <button
                             type="button"
-                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center text-sm font-bold shadow-lg hover:bg-red-600 active:scale-95 transition-all"
-                            onClick={() => {
-                              const newPreviews = [...filePreviews];
-                              newPreviews.splice(i, 1);
-                              const newDatas = [...fileDatas];
-                              newDatas.splice(i, 1);
-                              setFilePreviews(newPreviews);
-                              setFileDatas(newDatas);
-                              if (newPreviews.length === 0) {
-                                setFileType(null);
-                              }
-                            }}
+                            className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-sm font-bold shadow-lg hover:bg-destructive/90 active:scale-95 transition-all opacity-0 group-hover:opacity-100"
+                            onClick={clearFiles}
                           >
                             ×
                           </button>
                         </div>
-                      ))
-                    ) : (
-                      <div className="relative inline-block">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-primary/20">
-                          <span className="text-lg">📄</span>
-                          <span className="text-sm font-medium truncate max-w-[150px]">{fileName}</span>
-                        </div>
-                        <button
-                          type="button"
-                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center text-sm font-bold shadow-lg hover:bg-red-600 active:scale-95 transition-all"
-                          onClick={clearFiles}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
 
